@@ -1,14 +1,10 @@
 import sys
 import numpy as np
 import cv2
-import pybullet as p
-import pybullet_data
 from PyQt5 import QtWidgets, QtCore, QtGui
-from vedo import Mesh, Plotter
+from vedo import Mesh, Plotter, settings
 from scipy.interpolate import splprep, splev
 from scipy.spatial import Delaunay
-import tempfile
-import os
 
 
 class SketchCanvas(QtWidgets.QLabel):
@@ -32,7 +28,6 @@ class SketchCanvas(QtWidgets.QLabel):
         return QtGui.QImage(rgb_image.data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888)
 
     def mousePressEvent(self, event):
-        self.setFocus()
         self.drawing = True
         self.points = [(event.x(), event.y())]
 
@@ -56,46 +51,32 @@ class SketchCanvas(QtWidgets.QLabel):
 class MainWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("2D Sketch to 3D with Physics")
-        layout = QtWidgets.QVBoxLayout(self)
+        self.setWindowTitle("2D Sketch to 3D Generator")
+        layout = QtWidgets.QHBoxLayout(self)
 
-        # Top: canvas
+        # Left: sketch canvas
         self.canvas = SketchCanvas()
         layout.addWidget(self.canvas)
 
-        # Start bullet physics
-        p.connect(p.GUI)
-        p.setAdditionalSearchPath(pybullet_data.getDataPath())
-        p.setGravity(0, 0, -9.8)
-        self.plane = p.loadURDF("plane.urdf")
+        # Right: 3D display using Plotter in external window (fallback)
+        self.plotter = Plotter(title="3D View", axes=1, interactive=False)
+        self.plotter.show(interactive=False)
 
         self.canvas.draw_finished.connect(self.add_model)
+        self.models = []
         self.model_count = 0
+        self.z_offset = 0
 
     def add_model(self, raw_points):
-        mesh = self.contour_to_3d(raw_points)
-
-        # 匯出臨時 OBJ 檔案
-        with tempfile.TemporaryDirectory() as tmpdir:
-            obj_path = os.path.join(tmpdir, "model.obj")
-            mesh.write(obj_path)
-
-            # 創建 collision shape
-            visual_id = p.createVisualShape(shapeType=p.GEOM_MESH,
-                                            fileName=obj_path,
-                                            meshScale=[0.01, 0.01, 0.01])
-            collision_id = p.createCollisionShape(shapeType=p.GEOM_MESH,
-                                                  fileName=obj_path,
-                                                  meshScale=[0.01, 0.01, 0.01])
-            body_id = p.createMultiBody(baseMass=1,
-                                        baseCollisionShapeIndex=collision_id,
-                                        baseVisualShapeIndex=visual_id,
-                                        basePosition=[0, 0, 1 + self.model_count])
-
+        mesh = self.contour_to_3d(raw_points, z_shift=self.z_offset)
+        self.models.append(mesh)
+        mesh.write(f"model_{self.model_count}.obj")
         self.model_count += 1
-        print(f"模型 {self.model_count} 已加入物理世界")
+        self.z_offset -= 40
+        self.plotter.clear()
+        self.plotter.show(self.models, resetcam=False, viewup="z", interactive=False)
 
-    def contour_to_3d(self, contour):
+    def contour_to_3d(self, contour, z_shift=0):
         contour = np.array(contour)
         if np.linalg.norm(contour[0] - contour[-1]) > 5:
             contour = np.vstack([contour, contour[0]])
@@ -115,6 +96,8 @@ class MainWindow(QtWidgets.QWidget):
 
         top_pts = np.hstack([resampled, z_top[:, np.newaxis]])
         bot_pts = np.hstack([resampled, z_bot[:, np.newaxis]])
+        top_pts[:, 2] += z_shift
+        bot_pts[:, 2] += z_shift
 
         pts = np.vstack([top_pts, bot_pts])
         faces = []
