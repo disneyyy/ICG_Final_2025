@@ -11,3 +11,5 @@ Using Anaconda to establish a virtual environment
 cd into the directory, and `python3 final.py` or `python3 cut.py`
 * final.py: convert 2d sketch to 3d mesh
 * cut.py: choose 2 points to cut the mesh
+## Update!
+cd into the directory, and `python3 main.py`
