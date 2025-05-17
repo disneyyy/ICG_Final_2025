@@ -22,6 +22,35 @@ def get_constrained_triangulation(contour):
 
     return T
 
+def classify_triangles(vertices, triangles, segments):
+    """
+    Classify triangles into terminal / sleeve / junction
+    Return:
+        - internal_edges: list of edges not in boundary
+        - triangle_types: dict triangle index -> type
+    """
+    # 將所有 segments 轉成無序邊集合
+    boundary_edges = set(tuple(sorted(e)) for e in segments)
+    triangle_types = {}
+    internal_edges = set()
+
+    for i, tri in enumerate(triangles):
+        edges = [tuple(sorted([tri[j], tri[(j+1)%3]])) for j in range(3)]
+        ext_cnt = sum(e in boundary_edges for e in edges)
+        if ext_cnt == 2:
+            triangle_types[i] = "terminal"
+        elif ext_cnt == 1:
+            triangle_types[i] = "sleeve"
+        else:
+            triangle_types[i] = "junction"
+
+        # 非邊界的 edge 加入 internal_edges
+        for e in edges:
+            if e not in boundary_edges:
+                internal_edges.add(e)
+
+    return triangle_types, list(internal_edges)
+
 def drawing():
     drawing_flag = False
     points = []
@@ -98,12 +127,31 @@ def drawing():
     verts2d = tri_data["vertices"]
     tris = tri_data["triangles"]
 
-    # 建立 vedo-friendly triangle mesh (目前還是 2D)
-    mesh2d = Mesh([verts2d.tolist(), tris.tolist()])
-    mesh2d.c('lightblue').lw(1)
+    # 分類三角形與找 internal edges
+    segments = [[i, (i + 1) % len(verts2d)] for i in range(len(verts2d))]
+    triangle_types, internal_edges = classify_triangles(verts2d, tris, segments)
 
-    # 初步顯示平面 triangulation
-    show(mesh2d, axes=1, title="2D Constrained Triangulation")
+    # 建立 chordal axis（內部邊中點）
+    spine_pts = []
+    for e in internal_edges:
+        p1, p2 = verts2d[e[0]], verts2d[e[1]]
+        mid = (p1 + p2) / 2
+        spine_pts.append(mid)
+    spine_pts = np.array(spine_pts)
+
+    # 根據 spine elevation 計算 z 值（與相鄰 boundary vertex 距離平均）
+    z_vals = []
+    for pt in spine_pts:
+        dists = np.linalg.norm(verts2d - pt, axis=1)
+        avg_dist = np.mean(np.partition(dists, 5)[:5])  # 最近 5 個
+        z = avg_dist * 0.5  # 膨脹係數可調整
+        z_vals.append(z)
+    z_vals = np.array(z_vals)
+
+    # 建立上半部 3D mesh 頂點（spine + 外輪廓）
+    spine3d = np.hstack([spine_pts, z_vals[:, None]])
+    boundary3d = np.hstack([verts2d, np.zeros((len(verts2d), 1))])
+    points3d = np.vstack([boundary3d, spine3d])
 
     # 中心點與膨脹高度計算
     center = np.mean(resampled, axis=0)
@@ -127,11 +175,11 @@ def drawing():
     # 建立面
     faces = []
 
-    for tri_pts in tri.simplices:
-        faces.append([tri_pts[0], tri_pts[1], tri_pts[2]])  # 上面
-    for tri_pts in tri.simplices:
-        a, b, c = tri_pts + len(resampled)
-        faces.append([c, b, a])  # 底面反轉
+    # for tri_pts in tri.simplices:
+    #     faces.append([tri_pts[0], tri_pts[1], tri_pts[2]])  # 上面
+    # for tri_pts in tri.simplices:
+    #     a, b, c = tri_pts + len(resampled)
+    #     faces.append([c, b, a])  # 底面反轉
 
     n = len(resampled)
     for i in range(n):
