@@ -4,6 +4,26 @@ from vedo import *
 from scipy.spatial import Delaunay
 import triangle as tr
 
+def fall_with_gravity(mesh, floor_z=0, drop_height=300, steps=60):
+    from vedo import Plotter, Plane
+    import time
+
+    # 設定起始位置
+    mesh.pos(0, 0, drop_height)
+
+    plt = Plotter(title="Mesh Falling", axes=1, interactive=False)
+    plt += Plane(pos=(0, 0, floor_z), s=(600, 600)).color("gray5").alpha(0.3)
+    plt += mesh
+    plt.show(resetcam=True, interactive=False)
+
+    for i in range(steps):
+        dz = (drop_height - floor_z) * (1 - (i + 1) / steps)
+        mesh.pos(0, 0, dz + floor_z)
+        plt.render()
+        time.sleep(0.02)
+
+    plt.interactive().close()
+
 def get_constrained_triangulation(contour):
     if np.allclose(contour[0], contour[-1]):
         contour = contour[:-1]
@@ -64,7 +84,7 @@ def build_inflated_mesh(verts2d, tris, contour, z_strength=30):
 
     return Mesh([verts3d_full, faces]).compute_normals().lighting("plastic").color("orange")
 
-def drawing():
+def drawing(name):
     drawing_flag = False
     points = []
 
@@ -160,7 +180,8 @@ def drawing():
     tris = tri_data["triangles"]
     # z_strength: z
     mesh = build_inflated_mesh(verts2d, tris, resampled, z_strength=80)
-    mesh.write("teddy_generated.obj")
+    mesh.write("savedObjects/" + name + ".obj")
     plt = Plotter(title="Teddy Inflated Model", axes=1)
     plt.show(mesh, viewup="z", interactive=True)
     plt.close()  # 關鍵：釋放視窗資源
+    # fall_with_gravity(mesh)
