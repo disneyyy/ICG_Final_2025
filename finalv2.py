@@ -5,6 +5,56 @@ from scipy.spatial import Delaunay, distance_matrix
 import matplotlib.pyplot as plt
 import triangle as tr
 
+def quarter_oval_sweep(p1, p2, height, steps=6):
+    arc_pts = []
+    p1, p2 = np.array(p1), np.array(p2)
+    for t in np.linspace(0, np.pi / 2, steps):
+        base = (1 - np.cos(t)) * p1 + np.cos(t) * p2
+        z_offset = np.sin(t) * height
+        arc_pts.append(np.append(base, z_offset))
+    return np.array(arc_pts)
+
+def build_oval_sweep_mesh(chord_edges, elevation_map):
+    all_pts = []
+    faces = []
+    top_loops = []
+    pt_offset = 0
+
+    for (p1, p2) in chord_edges:
+        mid = tuple(((np.array(p1) + np.array(p2)) / 2).tolist())
+        height = elevation_map.get(mid, 1.0)
+        arc = quarter_oval_sweep(p1, p2, height)
+        arc_idx = list(range(pt_offset, pt_offset + len(arc)))
+        all_pts.extend(arc)
+        top_loops.append(arc_idx)
+        pt_offset += len(arc)
+
+    # 下半部鏡射，並對應 index
+    bottom_loops = []
+    for arc_idx in top_loops:
+        start = len(all_pts)
+        arc = [all_pts[i].copy() for i in arc_idx]
+        for pt in arc:
+            pt[2] *= -1
+        all_pts.extend(arc)
+        bottom_loops.append(list(range(start, start + len(arc))))
+
+    # 建立側面三角形（縫合 top-bottom）
+    for top, bot in zip(top_loops, bottom_loops):
+        for i in range(len(top) - 1):
+            t1, t2 = top[i], top[i + 1]
+            b1, b2 = bot[i], bot[i + 1]
+            faces.append([t1, t2, b2])
+            faces.append([t1, b2, b1])
+
+    # 建立上下蓋面（扇形）
+    for loop in top_loops + bottom_loops:
+        for i in range(len(loop) - 2):
+            faces.append([loop[0], loop[i + 1], loop[i + 2]])
+
+    # return Mesh([all_pts, faces]).compute_normals().lighting(\"plastic\").color(\"orange\")
+    return Mesh([all_pts, faces]).compute_normals().lighting("plastic").color("orange")
+
 def get_constrained_triangulation(contour):
     """
     Perform constrained Delaunay triangulation with triangle lib.
@@ -131,65 +181,20 @@ def drawing():
     segments = [[i, (i + 1) % len(verts2d)] for i in range(len(verts2d))]
     triangle_types, internal_edges = classify_triangles(verts2d, tris, segments)
 
-    # 建立 chordal axis（內部邊中點）
-    spine_pts = []
-    for e in internal_edges:
-        p1, p2 = verts2d[e[0]], verts2d[e[1]]
-        mid = (p1 + p2) / 2
-        spine_pts.append(mid)
-    spine_pts = np.array(spine_pts)
+    # 建立 chord_edges
+    chord_edges = [(verts2d[e[0]], verts2d[e[1]]) for e in internal_edges]
 
-    # 根據 spine elevation 計算 z 值（與相鄰 boundary vertex 距離平均）
-    z_vals = []
-    for pt in spine_pts:
-        dists = np.linalg.norm(verts2d - pt, axis=1)
-        avg_dist = np.mean(np.partition(dists, 5)[:5])  # 最近 5 個
-        z = avg_dist * 0.5  # 膨脹係數可調整
-        z_vals.append(z)
-    z_vals = np.array(z_vals)
+    # 建立 elevation_map（中點作為 key，距外點平均距離作為 z 高度）
+    elevation_map = {}
+    for p1, p2 in chord_edges:
+        mid = ((np.array(p1) + np.array(p2)) / 2)
+        dists = np.linalg.norm(verts2d - mid, axis=1)
+        avg_dist = np.mean(np.partition(dists, 5)[:5])
+        elevation_map[tuple(mid)] = avg_dist * 0.5  # 膨脹係數可調整
 
-    # 建立上半部 3D mesh 頂點（spine + 外輪廓）
-    spine3d = np.hstack([spine_pts, z_vals[:, None]])
-    boundary3d = np.hstack([verts2d, np.zeros((len(verts2d), 1))])
-    points3d = np.vstack([boundary3d, spine3d])
-
-    # 中心點與膨脹高度計算
-    center = np.mean(resampled, axis=0)
-    max_dist = np.max(np.linalg.norm(resampled - center, axis=1))
-
-    z_top = []
-    z_strength = 10
-    for p in resampled:
-        d = np.linalg.norm(p - center)
-        z = np.cos(d / max_dist * np.pi / 2) * z_strength
-        z_top.append(z)
-
-    z_top = np.array(z_top)
-    z_bot = -z_top
-
-    # 建立點陣列
-    top_pts = np.hstack([resampled, z_top[:, np.newaxis]])
-    bot_pts = np.hstack([resampled, z_bot[:, np.newaxis]])
-    points3d = np.vstack([top_pts, bot_pts])
-
-    # 建立面
-    faces = []
-
-    # for tri_pts in tri.simplices:
-    #     faces.append([tri_pts[0], tri_pts[1], tri_pts[2]])  # 上面
-    # for tri_pts in tri.simplices:
-    #     a, b, c = tri_pts + len(resampled)
-    #     faces.append([c, b, a])  # 底面反轉
-
-    n = len(resampled)
-    for i in range(n):
-        a, b = i, (i + 1) % n
-        a_bot, b_bot = a + n, b + n
-        faces.append([a, b, b_bot])
-        faces.append([a, b_bot, a_bot])
 
     # 顯示
-    mesh = Mesh([points3d, faces])
+    mesh = build_oval_sweep_mesh(chord_edges, elevation_map)
     mesh.color("orange").lighting("plastic").compute_normals()
     mesh.write("teddy_generated.obj")
     show(mesh, axes=1, title="Teddy-like 3D Model", viewup="z")
