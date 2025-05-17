@@ -2,7 +2,6 @@ from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit
 import sys
 from finalv3 import drawing  # 假設你已有此函式
-from gravity import drawing2  # 假設你已有此函式
 import re
 
 class MyMainWindow(QMainWindow):
@@ -43,7 +42,6 @@ class MyMainWindow(QMainWindow):
 
         cutButton = QPushButton("Cut")
         cutButton.setFixedSize(300, 150)
-        cutButton.clicked.connect(lambda: drawing2())
         cutButton.setStyleSheet("font-size: 20px;")
 
         button_layout = QHBoxLayout()
