@@ -1,7 +1,7 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit
 import sys
-from finalv3 import drawing  # 假設你已有此函式
+from draw import drawing  # 假設你已有此函式
 from gravity import drawing2
 from cut import draw_and_extrude_curve
 import re
