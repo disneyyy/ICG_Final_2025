@@ -2,6 +2,8 @@ from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit
 import sys
 from finalv3 import drawing  # 假設你已有此函式
+from gravity import drawing2
+from cut import draw_and_extrude_curve
 import re
 
 class MyMainWindow(QMainWindow):
@@ -42,13 +44,21 @@ class MyMainWindow(QMainWindow):
 
         cutButton = QPushButton("Cut")
         cutButton.setFixedSize(300, 150)
+        cutButton.clicked.connect(lambda: draw_and_extrude_curve(re.sub(r'\s+', '', input_bar.text()) or "teddy"))
         cutButton.setStyleSheet("font-size: 20px;")
+
+        gravityButton = QPushButton("Interact")
+        gravityButton.setFixedSize(300, 150)
+        gravityButton.clicked.connect(lambda: drawing2())
+        gravityButton.setStyleSheet("font-size: 20px;")
 
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         button_layout.addWidget(drawButton)
         button_layout.addSpacing(100)
         button_layout.addWidget(cutButton)
+        button_layout.addSpacing(100)
+        button_layout.addWidget(gravityButton)
         button_layout.addStretch()
 
         layout.addLayout(button_layout)
