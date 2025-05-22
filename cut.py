@@ -3,10 +3,14 @@ import numpy as np
 import time
 from vtkmodules.vtkFiltersCore import vtkCutter
 
-def draw_and_extrude_curve(mesh):
+original_style = None
+
+def draw_and_extrude_curve(mesh_name):
     """
     Allow user to draw curves on the surface and extrude them along camera view direction
     """
+    # Load the mesh with initial color
+    mesh = Mesh("savedObjects/" + mesh_name + ".obj")
     plt = Plotter(axes=1, bg='white', bg2='lightgray')
     
     # Set mesh properties for better visibility
@@ -131,10 +135,12 @@ def draw_and_extrude_curve(mesh):
         if evt.keypress == 'space':
             # Toggle drawing state
             is_drawing = not is_drawing
-            
+            global original_style
             if is_drawing:
                 print("Drawing STARTED - click on the surface to add points")
                 # Clear previous points if starting new drawing
+                original_style = plt.interactor.GetInteractorStyle()  # save current style
+                plt.interactor.SetInteractorStyle(None)  # disable interaction
                 points = []
                 if curve:
                     plt.remove(curve)
@@ -147,6 +153,7 @@ def draw_and_extrude_curve(mesh):
                     extruded_surface = None
             else:
                 print("Drawing STOPPED")
+                plt.interactor.SetInteractorStyle(original_style)  # restore interaction
                 if len(points) > 1:
                     print(f"Recorded {len(points)} points")
                 
@@ -169,7 +176,7 @@ def draw_and_extrude_curve(mesh):
             # Save the cut mesh
             if cut_mesh is not None:
                 try:
-                    filename = "cut_model.obj"
+                    filename = "savedObjects/" + mesh_name + "cut_model.obj"
                     cut_mesh.write(filename)
                     print(f"Cut mesh saved to {filename}")
                 except Exception as e:

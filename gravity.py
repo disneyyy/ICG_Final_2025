@@ -71,7 +71,6 @@ def init_falling_scene():
         resetcam=True,
         interactive=False,
         size=(1200, 900),
-        viewup="z"  # ✅ 關鍵設定：z 軸朝上
     )
 
 def fall_with_gravity(mesh, floor_z=0, drop_height=300, steps=60):
