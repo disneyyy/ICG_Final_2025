@@ -1,6 +1,6 @@
 # Environment
 Using Anaconda to establish a virtual environment  
-Running on Windows 11
+* Operating System: Windows 11
 * conda=24.9.2
 * python=3.12.9
 # Get Started
