@@ -9,8 +9,10 @@ Running on Windows 11
 ### 2. Install Dependency Packages  
 `pip install numpy opencv-python scipy matplotlib vedo triangle PyQt5`
 ### 3. Run Program
-cd into the directory, and `python3 final.py` or `python3 cut.py`
-* final.py: convert 2d sketch to 3d mesh
+cd into the directory, and `python3 main.py`  
+### Usages
+* draw.py: convert 2d sketch to 3d mesh
 * cut.py: choose 2 points to cut the mesh
-## Update!
-cd into the directory, and `python3 main.py`
+* gravity.py: interact with mesh
+
+
