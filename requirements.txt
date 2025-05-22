@@ -1,0 +1,7 @@
+numpy
+opencv-python
+scipy
+matplotlib
+vedo
+PyQt5
+triangle
