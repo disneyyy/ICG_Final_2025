@@ -4,26 +4,6 @@ from vedo import *
 from scipy.spatial import Delaunay
 import triangle as tr
 
-def fall_with_gravity(mesh, floor_z=0, drop_height=300, steps=60):
-    from vedo import Plotter, Plane
-    import time
-
-    # 設定起始位置
-    mesh.pos(0, 0, drop_height)
-
-    plt = Plotter(title="Mesh Falling", axes=1, interactive=False)
-    plt += Plane(pos=(0, 0, floor_z), s=(600, 600)).color("gray5").alpha(0.3)
-    plt += mesh
-    plt.show(resetcam=True, interactive=False)
-
-    for i in range(steps):
-        dz = (drop_height - floor_z) * (1 - (i + 1) / steps)
-        mesh.pos(0, 0, dz + floor_z)
-        plt.render()
-        time.sleep(0.02)
-
-    plt.interactive().close()
-
 def get_constrained_triangulation(contour):
     if np.allclose(contour[0], contour[-1]):
         contour = contour[:-1]
@@ -128,7 +108,7 @@ def drawing(name):
         elif len(contour) == 1:
             contour = np.repeat(contour, 4, axis=0)
         else:
-            raise ValueError("請至少畫一筆線段")
+            raise ValueError("No lines are drawn.")
         return contour
 
     contour = auto_complete_contour(contour)
@@ -139,19 +119,19 @@ def drawing(name):
     def resample(contour, n=100):
         from scipy.interpolate import splprep, splev
 
-        # 自動補齊 4 點以上
+        # add points to 4 if less than 4
         if len(contour) < 4:
             contour = np.repeat(contour[:1], 4, axis=0)
 
-        # 若首尾沒重合，補上首點作為結尾
+        # make the skech closed
         if np.linalg.norm(contour[0] - contour[-1]) > 5:
             contour = np.vstack([contour, contour[0]])
 
-        # 若點太近，加微小 noise
+        # add noise to the contour
         if np.max(np.linalg.norm(contour - contour[0], axis=1)) < 5:
             contour = contour + np.random.normal(0, 1, contour.shape)
 
-        # 移除重複點
+        # remove duplicate points
         _, unique_idx = np.unique(contour, axis=0, return_index=True)
         contour = contour[np.sort(unique_idx)]
 
@@ -163,7 +143,7 @@ def drawing(name):
             return np.vstack(out).T
 
         except Exception as e:
-            print("⚠️ 樣條重取樣失敗，嘗試 fallback：", e)
+            print("Failed to resample: ", e)
 
             if len(contour) < 2:
                 contour = np.vstack([contour[0], contour[0] + [1, 1]])
@@ -172,7 +152,7 @@ def drawing(name):
     try:
         resampled = resample(contour, 100)
     except Exception as e:
-        print("樣條重取樣失敗：", e)
+        print("Failed to resample: ", e)
         return
 
     tri_data = get_constrained_triangulation(resampled)
@@ -183,5 +163,4 @@ def drawing(name):
     mesh.write("savedObjects/" + name + ".obj")
     plt = Plotter(title="Teddy Inflated Model", axes=1)
     plt.show(mesh, viewup="z", interactive=True)
-    plt.close()  # 關鍵：釋放視窗資源
-    # fall_with_gravity(mesh)
+    plt.close()  

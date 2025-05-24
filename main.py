@@ -1,7 +1,7 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit
 import sys
-from draw import drawing  # 假設你已有此函式
+from draw import drawing  
 from gravity import drawing2
 from cut import draw_and_extrude_curve
 import re
@@ -12,34 +12,31 @@ class MyMainWindow(QMainWindow):
         self.setWindowTitle("2dSketchTo3dMesh")
         self.resize(1440, 720)
 
-        # 中央 widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # 垂直總體 layout
         layout = QVBoxLayout()
         central_widget.setLayout(layout)
 
-        # 👉 加入上方輸入欄（Input Bar）
+        # Input Bar
         input_bar = QLineEdit()
-        input_bar.setPlaceholderText("Enter the name of mesh object.")  # 顯示提示文字
+        input_bar.setPlaceholderText("Enter the name of mesh object.") 
         input_bar.setFixedHeight(40)
         input_bar.setFixedWidth(400)
 
-        # 加在水平方塊中間
         input_layout = QHBoxLayout()
         input_layout.addStretch()
         input_layout.addWidget(input_bar)
         input_layout.addStretch()
 
-        layout.addSpacing(50)          # 與視窗頂端距離
-        layout.addLayout(input_layout) # 插入輸入欄排版
-        layout.addSpacing(50)          # 與按鈕間距
+        layout.addSpacing(50)          
+        layout.addLayout(input_layout) 
+        layout.addSpacing(50)          
 
-        # 👉 按鈕區塊
+        # Buttons
         drawButton = QPushButton("Draw")
         drawButton.setFixedSize(300, 150)
-        drawButton.clicked.connect(lambda: drawing(re.sub(r'\s+', '', input_bar.text()) or "teddy"))  # 連結到繪圖函式
+        drawButton.clicked.connect(lambda: drawing(re.sub(r'\s+', '', input_bar.text()) or "teddy"))  
         drawButton.setStyleSheet("font-size: 20px;")
 
         cutButton = QPushButton("Cut")
@@ -62,9 +59,9 @@ class MyMainWindow(QMainWindow):
         button_layout.addStretch()
 
         layout.addLayout(button_layout)
-        layout.addStretch()  # 下方彈性空間
+        layout.addStretch()  
 
-# 主程式執行區
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MyMainWindow()

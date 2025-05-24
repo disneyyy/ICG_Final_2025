@@ -80,10 +80,10 @@ def fall_with_gravity(mesh, floor_z=0, drop_height=300, steps=60):
     if falling_plotter is None:
         init_falling_scene()
 
-    # 隨機位置與高度
+    # randomly generate a position
     rand_x = random.uniform(-500, 100)
     rand_y = random.uniform(-500, 100)
-    rand_z = random.uniform(drop_height, drop_height + 100)  # 更高一點
+    rand_z = random.uniform(drop_height, drop_height + 100)
 
     mesh.pos(rand_x, rand_y, rand_z)
     falling_plotter += mesh
@@ -96,26 +96,7 @@ def fall_with_gravity(mesh, floor_z=0, drop_height=300, steps=60):
         time.sleep(0.01)
 
     falling_plotter.render()
-def screen_to_world_on_plane(plotter, x, y, target_z):
-    cam = plotter.camera
-    renderer = plotter.renderer
-    w2i = renderer.GetActiveCamera().GetCompositeProjectionTransformMatrix(renderer.GetTiledAspectRatio(), -1, 1)
-    renderer.SetDisplayPoint(x, y, 0)
-    renderer.DisplayToWorld()
-    world_point1 = np.array(renderer.GetWorldPoint()[:3])
 
-    renderer.SetDisplayPoint(x, y, 1)
-    renderer.DisplayToWorld()
-    world_point2 = np.array(renderer.GetWorldPoint()[:3])
-
-    # 射線兩點 world_point1 (near), world_point2 (far)
-    direction = world_point2 - world_point1
-    if direction[2] == 0:
-        return world_point1  # 平行於平面，避免除以 0
-
-    t = (target_z - world_point1[2]) / direction[2]
-    intersection = world_point1 + t * direction
-    return intersection
 
 def enable_drag_control(plotter):
     global dragging, drag_target, drag_offset
@@ -133,7 +114,7 @@ def enable_drag_control(plotter):
             picker.Pick(click_pos[0], click_pos[1], 0, plotter.renderer)
             picked = picker.GetActor()
             for m in falling_meshes:
-                if picked == m.actor:  # ← 這裡改成 m.actor
+                if picked == m.actor:  
                     dragging = True
                     drag_target = m
                     pick_pos = np.array(picker.GetPickPosition())
@@ -154,7 +135,7 @@ def enable_drag_control(plotter):
             if np.linalg.norm(pick_pos) > 1e-6:
                 current_z = drag_target.center_of_mass()[2]
                 pick_pos[2] = current_z
-                # ✅ 修正偏移 (200, 200)
+                # adjust position
                 pick_pos[0] -= 250
                 pick_pos[1] -= 250
                 drag_target.pos(pick_pos)
@@ -214,7 +195,7 @@ def drawing2():
                 elif len(contour) == 1:
                     contour = np.repeat(contour, 4, axis=0)
                 else:
-                    raise ValueError("請至少畫一筆線段")
+                    raise ValueError("Please draw at least one line.")
                 return contour
 
             def resample(contour, n=100):
@@ -254,7 +235,7 @@ def drawing2():
                 mesh.pos(rand_x, rand_y, rand_z)
                 fall_with_gravity(mesh, drop_height=rand_z)
             except Exception as e:
-                print("⚠️ Mesh 建立失敗：", e)
+                print("Failed to make a mesh due to: ", e)
 
             img[:] = 0
             points.clear()
