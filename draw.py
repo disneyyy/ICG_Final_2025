@@ -5,6 +5,7 @@ from scipy.spatial import Delaunay
 import triangle as tr
 
 def get_constrained_triangulation(contour):
+    # The system then performs constrained Delaunay triangulation of the polygon.
     if np.allclose(contour[0], contour[-1]):
         contour = contour[:-1]
     vertices = contour.astype(np.float64)
@@ -64,6 +65,59 @@ def build_inflated_mesh(verts2d, tris, contour, z_strength=30):
 
     return Mesh([verts3d_full, faces]).compute_normals().lighting("plastic").color("orange")
 
+def auto_complete_contour(contour):
+    # more than 4 points, no need to auto-complete
+    if len(contour) >= 4:
+        return contour
+    # 3 points, insert a point in the middle
+    elif len(contour) == 3:
+        p = ((contour[0] + contour[1]) // 2).astype(int)
+        contour = np.insert(contour, 1, p, axis=0)
+    # 2 points, insert two points in the middle
+    elif len(contour) == 2:
+        p1 = ((contour[0] * 2 + contour[1]) // 3).astype(int)
+        p2 = ((contour[0] + contour[1] * 2) // 3).astype(int)
+        contour = np.vstack([contour[0], p1, p2, contour[1]])
+    # 1 point, repeat the point 4 times
+    elif len(contour) == 1:
+        contour = np.repeat(contour, 4, axis=0)
+    else:
+        raise ValueError("No lines are drawn.")
+    return contour
+
+def resample(contour, n=100):
+    from scipy.interpolate import splprep, splev
+
+    # add points to 4 if less than 4
+    if len(contour) < 4:
+        contour = np.repeat(contour[:1], 4, axis=0)
+
+    # make the skech closed
+    if np.linalg.norm(contour[0] - contour[-1]) > 5:
+        contour = np.vstack([contour, contour[0]])
+
+    # add noise to the contour
+    if np.max(np.linalg.norm(contour - contour[0], axis=1)) < 5:
+        contour = contour + np.random.normal(0, 1, contour.shape)
+
+    # remove duplicate points
+    _, unique_idx = np.unique(contour, axis=0, return_index=True)
+    contour = contour[np.sort(unique_idx)]
+
+    try:
+        k = min(3, len(contour) - 1)
+        tck, u = splprep([contour[:, 0], contour[:, 1]], s=0, per=True, k=k)
+        unew = np.linspace(0, 1.0, n)
+        out = splev(unew, tck)
+        return np.vstack(out).T
+
+    except Exception as e:
+        print("Failed to resample: ", e)
+
+        if len(contour) < 2:
+            contour = np.vstack([contour[0], contour[0] + [1, 1]])
+        return np.linspace(contour[0], contour[-1], n)
+    
 def drawing(name):
     drawing_flag = False
     points = []
@@ -94,67 +148,21 @@ def drawing(name):
     cv2.destroyAllWindows()
 
     contour = np.array(points, dtype=np.int32)
-
-    def auto_complete_contour(contour):
-        if len(contour) >= 4:
-            return contour
-        elif len(contour) == 3:
-            p = ((contour[0] + contour[1]) // 2).astype(int)
-            contour = np.insert(contour, 1, p, axis=0)
-        elif len(contour) == 2:
-            p1 = ((contour[0] * 2 + contour[1]) // 3).astype(int)
-            p2 = ((contour[0] + contour[1] * 2) // 3).astype(int)
-            contour = np.vstack([contour[0], p1, p2, contour[1]])
-        elif len(contour) == 1:
-            contour = np.repeat(contour, 4, axis=0)
-        else:
-            raise ValueError("No lines are drawn.")
-        return contour
-
+    # Auto-complete the contour if it has less than 4 points
     contour = auto_complete_contour(contour)
 
+    # Ensure the contour is closed
     if np.linalg.norm(contour[0] - contour[-1]) > 5:
         contour = np.vstack([contour, contour[0]])
 
-    def resample(contour, n=100):
-        from scipy.interpolate import splprep, splev
-
-        # add points to 4 if less than 4
-        if len(contour) < 4:
-            contour = np.repeat(contour[:1], 4, axis=0)
-
-        # make the skech closed
-        if np.linalg.norm(contour[0] - contour[-1]) > 5:
-            contour = np.vstack([contour, contour[0]])
-
-        # add noise to the contour
-        if np.max(np.linalg.norm(contour - contour[0], axis=1)) < 5:
-            contour = contour + np.random.normal(0, 1, contour.shape)
-
-        # remove duplicate points
-        _, unique_idx = np.unique(contour, axis=0, return_index=True)
-        contour = contour[np.sort(unique_idx)]
-
-        try:
-            k = min(3, len(contour) - 1)
-            tck, u = splprep([contour[:, 0], contour[:, 1]], s=0, per=True, k=k)
-            unew = np.linspace(0, 1.0, n)
-            out = splev(unew, tck)
-            return np.vstack(out).T
-
-        except Exception as e:
-            print("Failed to resample: ", e)
-
-            if len(contour) < 2:
-                contour = np.vstack([contour[0], contour[0] + [1, 1]])
-            return np.linspace(contour[0], contour[-1], n)
-
+    # Resample the contour to have a fixed number of points
     try:
         resampled = resample(contour, 100)
     except Exception as e:
         print("Failed to resample: ", e)
         return
 
+    # Classify triangles and build the mesh
     tri_data = get_constrained_triangulation(resampled)
     verts2d = tri_data["vertices"]
     tris = tri_data["triangles"]
